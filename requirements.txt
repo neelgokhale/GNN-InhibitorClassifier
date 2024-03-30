@@ -1,0 +1,8 @@
+numpy
+pandas
+tqdm
+rdkit==2023.9.5
+torch==2.2.2
+torch_geometric==2.5.2
+torchaudio==2.2.2
+torchvision==0.17.2
