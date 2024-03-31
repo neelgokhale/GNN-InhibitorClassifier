@@ -8,6 +8,7 @@ import numpy as np
 
 from typing import Callable, Any
 from torch_geometric.data import Dataset, Data, download_url
+from deepchem.feat import MolGraphConvFeaturizer
 from rdkit.Chem import MolFromSmiles, rdmolops
 from rdkit.Chem.rdchem import Mol
 from tqdm import tqdm
@@ -22,9 +23,9 @@ class MoleculeDataset(Dataset):
         """Initialize dataset
 
         Args:
-            `root` (`str | None`): root folder for data storage
-            `transform` (`Callable | None`, optional): transforation protocol. Defaults to None.
-            `pre_transform` (`Callable | None`, optional): pre-transformation protocol. Defaults to None.
+            `root` (`str`): root folder for data storage
+            `transform` (`Callable`, optional): transforation protocol. Defaults to None.
+            `pre_transform` (`Callable`, optional): pre-transformation protocol. Defaults to None.
         """
         super(MoleculeDataset, self).__init__(root, transform, pre_transform)
         
@@ -41,7 +42,9 @@ class MoleculeDataset(Dataset):
     def processed_file_names(self) -> str:
         """If these files are found in raw_dir, processing is skipped
         """
-        return 'not_implemented.pt'
+        self.data = pd.read_csv(self.raw_paths[0]).reset_index()
+        
+        return [f"data_{i}.pt" for i in list(self.data.index)]
         
     def download(self) -> None:
         """Download the HIV dataset from MoleculeNet
@@ -53,30 +56,30 @@ class MoleculeDataset(Dataset):
         """Process raw data
         """
         try:
-            self.data = pd.read_csv(self.raw_paths[0])
+            self.data = pd.read_csv(self.raw_paths[0]).reset_index()
         except Exception as e:
-            print(f"Could not convert csv due to the following errror:\n{e}")
+            raise e("Could not convert csv")
+        
+        # using deepchem's molgraph featurizer
+        featurizer = MolGraphConvFeaturizer(use_edges=True)
             
-        for ind, mol in tqdm(self.data.iterrows(), total=self.data.shape[0]):
-            mol_obj = MolFromSmiles(mol['smiles'])
-            # get node features
-            node_features = self._get_node_features(mol_obj)
-            # get edge features
-            edge_features = self._get_edge_features(mol_obj)
-            # get adjacency matrix
-            edge_index = self._get_adjacency_info(mol_obj)
-            # get labels
-            label = self._get_labels(mol['HIV_active'])
+        for ind, row in tqdm(self.data.iterrows(), total=self.data.shape[0]):
             
-            # create data object
-            data = Data(
-                x=node_features,
-                edge_index=edge_index,
-                edge_attr=edge_features,
-                y=label,
-                smiles=mol['smiles']
-            )
+            # TODO work around for featurizer required
+            # I had to add the following modification to the GraphData obj @ line 150 from the
+            # deepchem library as below:
+            # class GraphData:
+            #       ...
+            #   def to_pyg_graph(self):
+            #       ...
+            #       for key, value in self.kwargs.items():
+            #           << if key != 'pos':  # Exclude 'pos' from kwargs >>
             
+            feat = featurizer.featurize(row['smiles'])
+            data = feat[0].to_pyg_graph()
+            data.y = self._get_labels(row['HIV_active'])
+            data.smiles = row['smiles']
+        
             # save to processed dir
             pathname = os.path.join(self.processed_dir, f"data_{ind}.pt")
             torch.save(data, pathname)    
