@@ -6,10 +6,10 @@ import torch
 import pandas as pd
 import numpy as np
 
-from typing import Callable, Any
+from typing import Callable, Optional, Any
 from torch_geometric.data import Dataset, Data, download_url
 from deepchem.feat import MolGraphConvFeaturizer
-from rdkit.Chem import MolFromSmiles, rdmolops
+from rdkit.Chem import rdmolops
 from rdkit.Chem.rdchem import Mol
 from tqdm import tqdm
 
@@ -18,15 +18,20 @@ from constants import Constant as c
 
 class MoleculeDataset(Dataset):
     def __init__(self, root: str, 
-                 transform: Callable=None, 
-                 pre_transform: Callable=None):
+                 filename: str,
+                 test: bool=False,
+                 transform: Optional[Callable]=None, 
+                 pre_transform: Optional[Callable]=None):
         """Initialize dataset
 
         Args:
             `root` (`str`): root folder for data storage
+            `filename` (`str`): name of file to 
             `transform` (`Callable`, optional): transforation protocol. Defaults to None.
             `pre_transform` (`Callable`, optional): pre-transformation protocol. Defaults to None.
         """
+        self.filename = filename
+        self.test = test
         super(MoleculeDataset, self).__init__(root, transform, pre_transform)
         
     @property
@@ -36,7 +41,7 @@ class MoleculeDataset(Dataset):
         Returns:
             `str`: raw dataset file name
         """
-        return "HIV.csv"
+        return self.filename
     
     @property
     def processed_file_names(self) -> str:
@@ -44,16 +49,20 @@ class MoleculeDataset(Dataset):
         """
         self.data = pd.read_csv(self.raw_paths[0]).reset_index()
         
-        return [f"data_{i}.pt" for i in list(self.data.index)]
-        
+        if self.test:
+            return [f"data_test_{i}.pt" for i in list(self.data.index)]
+        else:
+            return [f"data_{i}.pt" for i in list(self.data.index)]
+    
     def download(self) -> None:
-        """Download the HIV dataset from MoleculeNet
+        """Download the HIV data from the MoleculeNet url
         """
         url = c.DATASET_URL
         path = download_url(url, self.raw_dir)
+        # TODO: if first time download, refactor so train_test_split util is run here
         
     def process(self) -> None:
-        """Process raw data
+        """Process raw datap
         """
         try:
             self.data = pd.read_csv(self.raw_paths[0]).reset_index()
@@ -65,15 +74,15 @@ class MoleculeDataset(Dataset):
             
         for ind, row in tqdm(self.data.iterrows(), total=self.data.shape[0]):
             
-            # TODO work around for featurizer required
-            # I had to add the following modification to the GraphData obj @ line 150 from the
-            # deepchem library as below:
+            # NOTE avoiding error with "pos" kw in to_pyg_graph()
+            # I had to add the following modification to the GraphData obj @ line 150 from file
+            # graph_data.py in the deepchem library:
             # class GraphData:
             #       ...
             #   def to_pyg_graph(self):
             #       ...
             #       for key, value in self.kwargs.items():
-            #           << if key != 'pos':  # Exclude 'pos' from kwargs >>
+            # ADD:      if key != 'pos':  # Exclude 'pos' from kwargs
             
             feat = featurizer.featurize(row['smiles'])
             data = feat[0].to_pyg_graph()
@@ -81,8 +90,12 @@ class MoleculeDataset(Dataset):
             data.smiles = row['smiles']
         
             # save to processed dir
-            pathname = os.path.join(self.processed_dir, f"data_{ind}.pt")
-            torch.save(data, pathname)    
+            if self.test:
+                pathname = os.path.join(self.processed_dir, f"data_test_{ind}.pt")
+                torch.save(data, pathname)
+            else:
+                pathname = os.path.join(self.processed_dir, f"data_{ind}.pt")
+                torch.save(data, pathname)
             
     def _get_node_features(self, mol: Mol) -> torch.Tensor:
         """Returns a 2d tensor with [# nodes, # of features per node] using molecule smile
@@ -178,6 +191,9 @@ class MoleculeDataset(Dataset):
         Returns:
             `Any`: data object
         """
-        data = torch.load(os.path.join(self.processed_dir, f"data_{idx}.pt"))
+        if self.test:
+            data = torch.load(os.path.join(self.processed_dir, f"data_test_{idx}.pt"))
+        else: 
+            data = torch.load(os.path.join(self.processed_dir, f"data_{idx}.pt"))
         
         return data
