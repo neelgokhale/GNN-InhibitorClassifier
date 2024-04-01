@@ -45,7 +45,7 @@ class GNN(torch.nn.Module):
             x, edge_index, None, batch_index
         )
         x1 = torch.cat([global_max_pool(x, batch_index), global_mean_pool(x, batch_index)], dim=1)
-        
+
         # second block
         x = self.conv2(x, edge_index)
         x = self.head_transform2(x)
@@ -64,10 +64,10 @@ class GNN(torch.nn.Module):
 
         # concat pooled vectors
         x = x1 + x2 + x3
-        
+
         # output block
         x = self.linear1(x).relu()
         x = f.dropout(x, p=0.5, training=self.training)
         x = self.linear2(x)
-        
+
         return x
