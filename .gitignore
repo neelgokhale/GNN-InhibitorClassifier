@@ -6,6 +6,10 @@ __pycache__/
 # test scripts
 *test*.py
 
+# mlflow artifacts
+mlruns
+runs
+
 # data directories
 data/raw/*
 data/processed/*

@@ -24,11 +24,11 @@ class GNN(torch.nn.Module):
         self.head_transform1 = Linear(embedding_size * 3, embedding_size) # convert back into initial size
         self.pool1 = TopKPooling(embedding_size, ratio=0.8)
         
-        self.conv2 = GATConv(feature_size, embedding_size, heads=3, dropout=0.3)
+        self.conv2 = GATConv(embedding_size, embedding_size, heads=3, dropout=0.3)
         self.head_transform2 = Linear(embedding_size * 3, embedding_size) # convert back into initial size
         self.pool2 = TopKPooling(embedding_size, ratio=0.5)
         
-        self.conv3 = GATConv(feature_size, embedding_size, heads=3, dropout=0.3)
+        self.conv3 = GATConv(embedding_size, embedding_size, heads=3, dropout=0.3)
         self.head_transform3 = Linear(embedding_size * 3, embedding_size) # convert back into initial size
         self.pool3 = TopKPooling(embedding_size, ratio=0.2)
         

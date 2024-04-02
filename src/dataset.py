@@ -57,8 +57,9 @@ class MoleculeDataset(Dataset):
     def download(self) -> None:
         """Download the HIV data from the MoleculeNet url
         """
-        url = c.DATASET_URL
-        path = download_url(url, self.raw_dir)
+        pass
+        # url = c.DATASET_URL
+        # path = download_url(url, self.raw_dir)
         # TODO: if first time download, refactor so train_test_split util is run here
         
     def process(self) -> None:
