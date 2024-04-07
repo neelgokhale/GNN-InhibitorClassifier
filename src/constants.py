@@ -17,3 +17,6 @@ class Constant:
     # model
     MODEL_NAME = "gnn-inhibitor-detector"
     
+    # training
+    NUM_EPOCHS = 5
+    
